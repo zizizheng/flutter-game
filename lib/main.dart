@@ -32,16 +32,46 @@ class Home extends StatelessWidget {
           minWidth: 200,
           buttonColor: Colors.grey[300],
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              RaisedButton(
-                onPressed: () => Navigator.pushNamed(context, '/tictoctoe'),
-                child: Text('井字遊戲'),
+              Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Column(
+                  children: <Widget>[
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text('井字遊戲', style: TextStyle(fontSize: 20)),
+                    ),
+                    Container(
+                      decoration: BoxDecoration(
+                        boxShadow: [BoxShadow(color: Colors.blue, blurRadius: 2)],
+                      ),
+                      child: GestureDetector(
+                        onTap: () => Navigator.pushNamed(context, '/tictoctoe'),
+                        child: Container(child: Image.asset('assets/images/tictoctoe.png')),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              SizedBox(height: 100),
-              RaisedButton(
-                onPressed: () => Navigator.pushNamed(context, '/minesweeper'),
-                child: Text('踩地雷'),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  children: <Widget>[
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text('踩地雷', style: TextStyle(fontSize: 20)),
+                    ),
+                    Container(
+                      decoration: BoxDecoration(
+                        boxShadow: [BoxShadow(color: Colors.blue, blurRadius: 2)],
+                      ),
+                      child: GestureDetector(
+                        onTap: () => Navigator.pushNamed(context, '/minesweeper'),
+                        child: Container(child: Image.asset('assets/images/mineweeper.png')),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
