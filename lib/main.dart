@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:tictoctoe/tictoctoe.dart';
 
 import 'minesweeper/index.dart';
+import 'tetris/index.dart';
 
 void main() => runApp(MyApp());
 
@@ -10,11 +11,12 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: '遊戲',
-      initialRoute: '/',
+      initialRoute: '/tetris',
       routes: {
         '/': (context) => Home(),
         '/tictoctoe': (context) => TicTocToeApp(),
-        '/minesweeper': (context) => MinesWeeperLayout(),
+        '/minesweeper': (context) => MinesWeeperApp(),
+        '/tetris': (context) => TetrisApp(),
       },
     );
   }

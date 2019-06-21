@@ -35,12 +35,12 @@ Map<GAME_LEVEL, LevelSetting> gameMode = {
   GAME_LEVEL.HARD: LevelSetting('困難', 80, 20),
 };
 
-class MinesWeeperLayout extends StatefulWidget {
+class MinesWeeperApp extends StatefulWidget {
   @override
-  _MinesWeeperLayoutState createState() => _MinesWeeperLayoutState();
+  _MinesWeeperAppState createState() => _MinesWeeperAppState();
 }
 
-class _MinesWeeperLayoutState extends State<MinesWeeperLayout> {
+class _MinesWeeperAppState extends State<MinesWeeperApp> {
   GAME_LEVEL gameLevel;
   @override
   void initState() {
