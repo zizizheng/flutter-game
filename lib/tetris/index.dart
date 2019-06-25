@@ -52,9 +52,8 @@ class TetrisApp extends StatelessWidget {
 class DrawState {
   List<Point> points;
   TetrominoType type;
-  int shapeIndex;
   Point rotateCenter;
-  DrawState(this.points, this.type, this.shapeIndex, this.rotateCenter);
+  DrawState(this.points, this.type, this.rotateCenter);
 }
 
 class Area extends StatefulWidget {
@@ -65,25 +64,21 @@ class Area extends StatefulWidget {
 GlobalKey _mapkey = GlobalKey();
 
 class _AreaState extends State<Area> {
-  // 操作中的方塊
-  List<List<TetrominoType>> playMap;
   // 已堆疊的方塊
-  List<List<TetrominoType>> stackMap;
-  List<ACTION_TYPE> actionQueue;
+  final List<List<TetrominoType>> stackMap = List.generate(
+    MapHeight,
+    (_) => List.generate(MapWidth, (_) => null),
+  );
+  final List<ACTION_TYPE> actionQueue = [];
+  final Random random = new Random();
+  final DrawState drawState = DrawState([], null, null);
   // repaint by frame(60 fps)
   Timer repaintTimer;
   // add step per 500ms
   Timer stepTimer;
-  Random random;
-  DrawState drawState;
   bool mapLock;
   double tipMoveDistance;
-
-  @override
-  void initState() {
-    _newGame();
-    super.initState();
-  }
+  bool canGoDown;
 
   @override
   void dispose() {
@@ -106,6 +101,7 @@ class _AreaState extends State<Area> {
                   border: Border.all(width: 4, color: Colors.white)),
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
+                onPanDown: (_) => canGoDown = true,
                 onPanUpdate: (details) => _userMove(details.delta),
                 onTap: () {
                   if(drawState.type != null) actionQueue.add(ACTION_TYPE.ROTATE);
@@ -116,8 +112,9 @@ class _AreaState extends State<Area> {
                   height: SquareEdge * MapHeight,
                   child: Stack(
                     children: <Widget>[
-                      CustomPaint(painter: MapPainter(stackMap)),
-                      CustomPaint(painter: MapPainter(playMap)),
+                      CustomPaint(
+                        painter: MapPainter(stackMap, drawState.points, drawState.type),
+                      ),
                     ],
                   ),
                 ),
@@ -125,8 +122,8 @@ class _AreaState extends State<Area> {
             ),
             RaisedButton(
               onPressed: () => drawState.type == null
-                ? actionQueue.add(ACTION_TYPE.NEW)
-                : _newGame(),
+                ? _newGame()
+                : null,
               child: Text('開始'),
             )
           ],
@@ -136,18 +133,16 @@ class _AreaState extends State<Area> {
   }
 
   void _newGame() {
-     stackMap = List.generate(
-      MapHeight,
-      (_) => List.generate(MapWidth, (_) => null),
+    stackMap.asMap().forEach(
+      (i, row) => row.asMap().forEach(
+        (j, cell) => stackMap[i][j] = null)
     );
-    playMap = List.generate(
-      MapHeight,
-      (_) => List.generate(MapWidth, (_) => null),
-    );
-    actionQueue = [];
+    actionQueue.clear();
+    actionQueue.add(ACTION_TYPE.NEW);
     mapLock = false;
-    random = new Random();
-    drawState = DrawState([], null, -1, null);
+    drawState.points = [];
+    drawState.rotateCenter = null;
+    drawState.type = null;
     if(repaintTimer != null) repaintTimer.cancel();
     repaintTimer = Timer.periodic(
       // 60 fps
@@ -185,17 +180,16 @@ class _AreaState extends State<Area> {
     if(stepTimer != null) stepTimer.cancel();
     stepTimer = Timer.periodic(new Duration(milliseconds: StepTime),
       (t) {
-        if(stackMap.any((row) => row.every((cell) => cell != null))) {
-          actionQueue.add(ACTION_TYPE.CLEAN);
-        }
-        else if(drawState.type != null) actionQueue.add(ACTION_TYPE.STEP);
+        if(drawState.type != null) actionQueue.add(ACTION_TYPE.STEP);
       }
     );
     tipMoveDistance = 0;
+    setState(() { });
   }
 
   // 隨機新增一塊方塊
   void _newTetro() {
+    // print('新增方塊開始');
     final type = TetrominoType.values
         .elementAt(random.nextInt(tetrominoes.values.length));
     final shapes = tetrominoes[type].shape;
@@ -211,7 +205,7 @@ class _AreaState extends State<Area> {
           if (
               randomShape[i][j] != 0 &&
               i - yShift >= 0 &&
-              stackMap[i - yShift][j + 3] != null
+              stackMap[i - yShift][j + StartShift] != null
             ) {
               isValid = false;
               break;
@@ -223,7 +217,6 @@ class _AreaState extends State<Area> {
     if (yShift > 3) return;
     setState(() {
       drawState.type = type;
-      drawState.shapeIndex = shapeIndex;
       drawState.rotateCenter = null;
       for (var i = 0; i < 4; i++) {
         for (var j = 0; j < 4; j++) {
@@ -234,15 +227,16 @@ class _AreaState extends State<Area> {
             drawState.points.add(newPoint);
             // 紀錄旋轉中心
             if(randomShape[i][j] == 2) drawState.rotateCenter = newPoint;
-            if (i - yShift >= 0) playMap[newY][newX] = type;
           }
         }
       }
     });
+    // print('新增方塊結束');
   }
 
   // 方塊下降一格
   void _stepDown() {
+    // print('下降開始');
     if (drawState.type == null) return;
     // 確保每一格都可以往下畫
     bool canStepDown = drawState.points.every((point) {
@@ -252,15 +246,10 @@ class _AreaState extends State<Area> {
       return newY < MapHeight && stackMap[newY][point.x] == null;
     });
     setState(() {
-      // 清除本來方塊位置的顏色
-      drawState.points.forEach((point) {
-        if (point.y >= 0) playMap[point.y][point.x] = null;
-      });
       if (canStepDown) {
         // 往下填入新的顏色
         drawState.points.asMap().forEach((i, point) {
           if (point.y + 1 < 0) return;
-          playMap[point.y + 1][point.x] = drawState.type;
           drawState.points[i] = Point(point.x, point.y + 1);
         });
         // 更新旋轉座標位置
@@ -273,14 +262,20 @@ class _AreaState extends State<Area> {
           if (point.y < 0) return;
           stackMap[point.y][point.x] = drawState.type;
         });
+        // 如果有可以清空的列則清空
+        if(stackMap.any((row) => row.every((cell) => cell != null))) {
+          actionQueue.add(ACTION_TYPE.CLEAN);
+        }
         actionQueue.add(ACTION_TYPE.NEW);
         drawState.points = [];
         drawState.type = null;
       }
     });
+    // print('下降結束');
   }
 
   void _userMove(Offset delta) {
+    // print('移動開始');
     if (drawState.type == null) return;
     final RenderBox renderBoxRed = _mapkey.currentContext.findRenderObject();
     final boxStart = renderBoxRed.localToGlobal(Offset.zero).dx;
@@ -307,9 +302,11 @@ class _AreaState extends State<Area> {
       actionQueue.addAll(List.generate(offsetUnit.abs(), (_) => ACTION_TYPE.LEFT));
     }
     // 往下
-    if(delta.dy > 3) {
+    if(delta.dy > 15 && canGoDown == true) {
+      canGoDown = false;
       actionQueue.add(ACTION_TYPE.DOWN);
     }
+    // print('移動結束');
   }
 
   void _moveTetro(ACTION_TYPE action) {
@@ -318,26 +315,27 @@ class _AreaState extends State<Area> {
       int xShift = action == ACTION_TYPE.LEFT ? -1 : 1;
       if(drawState.points.any((point) => point.x + xShift < 0 || point.x + xShift >= MapWidth)) return ;
       newPoints = drawState.points.map((point) => Point(point.x + xShift, point.y)).toList();
-      if(drawState.rotateCenter != null)
+      if(drawState.rotateCenter != null) {
         drawState.rotateCenter = Point(drawState.rotateCenter.x + xShift, drawState.rotateCenter.y);
+      }
+      // 檢查地圖合法性
+      if(newPoints.any((point) => stackMap[point.y][point.x]!= null)) return ;
     }
     else if(action == ACTION_TYPE.DOWN) {
-      newPoints = List.from(drawState.points);
+      int downShift = 0;
       while(
-        newPoints.every((point) =>
-          point.y + 1 < MapHeight &&
-          stackMap[point.y + 1][point.x] == null)
+        drawState.points.every((point) =>
+          point.y + downShift + 1 < MapHeight &&
+          stackMap[point.y + downShift + 1][point.x] == null)
       ) {
-        newPoints = newPoints.map((point) => Point(point.x, point.y + 1)).toList();
-        if(drawState.rotateCenter != null)
-          drawState.rotateCenter = Point(drawState.rotateCenter.x, drawState.rotateCenter.y + 1);
+        downShift++;
       }
+      newPoints = drawState.points.map((point) => Point(point.x, point.y + downShift)).toList();
+      if(drawState.rotateCenter != null)
+        drawState.rotateCenter = Point(drawState.rotateCenter.x, drawState.rotateCenter.y + downShift);
     }
     else return;
-    if(newPoints.any((point) => stackMap[point.y][point.x]!= null)) return ;
     setState(() {
-      drawState.points.forEach((point) => playMap[point.y][point.x] = null);
-      newPoints.forEach((point) => playMap[point.y][point.x] = drawState.type);
       drawState.points = newPoints;
     });
   }
@@ -357,19 +355,27 @@ class _AreaState extends State<Area> {
         (point.x - drawState.rotateCenter.x) + drawState.rotateCenter.y,
       )).toList();
     newPoints.add(drawState.rotateCenter);
-    while(newPoints.any((point) => point.x < 0 && point.y < MapHeight)) {
+    // 左側超過則右移
+    while(newPoints.any((point) => point.x < 0)) {
       newPoints = newPoints.map((point) => Point(point.x + 1, point.y)).toList();
     }
-    while(newPoints.any((point) => point.x >= MapWidth && point.y < MapHeight)) {
+    // 右側超過則左移
+    while(newPoints.any((point) => point.x >= MapWidth)) {
       newPoints = newPoints.map((point) => Point(point.x - 1, point.y)).toList();
+    }
+    // 上側超過則下移
+    while(newPoints.any((point) => point.y < 0)) {
+      newPoints = newPoints.map((point) => Point(point.x, point.y + 1)).toList();
+    }
+    // 下策超過則上移
+    while(newPoints.any((point) => point.y >= MapHeight)) {
+      newPoints = newPoints.map((point) => Point(point.x, point.y - 1)).toList();
     }
     // 有卡到目前的方塊就不給轉
     if(newPoints.any((point) => stackMap[point.y][point.x] != null)) {
       return ;
     }
     setState(() {
-      drawState.points.forEach((point) => playMap[point.y][point.x] = null);
-      newPoints.forEach((point) => playMap[point.y][point.x] = drawState.type);
       drawState.points = newPoints;
     });
   }
@@ -384,29 +390,26 @@ class _AreaState extends State<Area> {
         stackMap.removeAt(index);
         stackMap.insert(0, List.generate(MapWidth, (_) => null));
       });
-      print(stackMap.length);
-
-      // stackMap.fillRange(0, MapHeight - stackMap.length + 1, List.generate(MapWidth, (_) => null));
-      // print(stackMap.length);
-
     });
   }
 }
 
 class MapPainter extends CustomPainter {
-  List<List<TetrominoType>> playMap;
-  MapPainter(this.playMap);
+  List<List<TetrominoType>> map;
+  List<Point> drawPoint;
+  TetrominoType drawType;
+  MapPainter(this.map, this.drawPoint, this.drawType);
   @override
   void paint(Canvas canvas, Size size) {
-    playMap.asMap().forEach((y, row) {
+    map.asMap().forEach((y, row) {
       row.asMap().forEach((x, cell) {
         if (cell != null) {
-          canvas.drawRect(
-              Rect.fromPoints(
-                Offset(x * SquareEdge + 1, y * SquareEdge + 1),
-                Offset((x + 1) * SquareEdge - 1, (y + 1) * SquareEdge - 1),
-              ),
-              Paint()..color = tetrominoes[cell].color);
+          _drawPoint(canvas, Point(x, y), tetrominoes[cell].color);
+        }
+      });
+      drawPoint.forEach((point) {
+        if(point.x >= 0 && point.x < MapWidth && point.y >= 0 && point.y < MapHeight) {
+          _drawPoint(canvas, point, tetrominoes[drawType].color);
         }
       });
     });
@@ -415,5 +418,15 @@ class MapPainter extends CustomPainter {
   @override
   bool shouldRepaint(CustomPainter oldDelegate) {
     return true;
+  }
+
+  void _drawPoint(Canvas canvas, Point point, Color color) {
+    canvas.drawRect(
+      Rect.fromPoints(
+        Offset(point.x * SquareEdge + 1, point.y * SquareEdge + 1),
+        Offset((point.x + 1) * SquareEdge - 1, (point.y + 1) * SquareEdge - 1),
+      ),
+      Paint()..color = color,
+    );
   }
 }
